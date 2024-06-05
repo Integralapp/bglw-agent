@@ -1,0 +1,14 @@
+modules = ["python-3.10", "python-3.12"]
+
+[nix]
+channel = "stable-23_11"
+
+[[ports]]
+localPort = 47335
+externalPort = 3000
+exposeLocalhost = true
+
+[[ports]]
+localPort = 60929
+externalPort = 3001
+exposeLocalhost = true
