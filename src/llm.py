@@ -1,6 +1,9 @@
+from config import BT_API_KEY, MODEL_ID
+
+import re
+
 from typing import List, TypedDict
 from requests import post
-from config import BT_API_KEY, MODEL_ID
 
 BT_URL = f"https://model-{MODEL_ID}.api.baseten.co/production/predict"
 
@@ -14,17 +17,11 @@ def _predict_endpoint(messages: List[Message], stream: bool = False, *args, **kw
         headers={
             "Authorization": f"Api-Key {BT_API_KEY}"
         },
-        json={"messages": messages},
-        stream=stream,
+        json={"messages": messages, "max_tokens": 4000, "stream": stream},
         **kwargs
     )
 
-    if stream:
-        for content in response.iter_content():
-            if content:
-                yield content.decode("utf-8")
-    else:
-        return response.content
+    return response.json()["output"]
 
 def generate(messages: List[Message], *args, **kwargs):
    return _predict_endpoint(messages, *args, **kwargs)
