@@ -44,11 +44,29 @@ def retrieve_functions():
         Functions(
             function_name="editEvent",
             function_inputs={
-                "event_id": "string"
+                "event_id": "string",
+                "additional_guests": "optional<list<string>>",
+                "end_date": "optional<string>",
+                "end_datetime": "optional<string>",
+                "location": "optional<string>",
+                "start_date": "optional<string>",
+                "start_datetime": "optional<string>",
+                "summary": "optional<string>"
             },
             function_outputs={
-                
+                "summary": "string",
+                "location": "string",
+                "description": "string",
+                "timeZone": "string",
+                "startTime": "string",
+                "endTime": "string",
             }
+        ),
+        Functions(
+            function_name="deleteEvent",
+            function_inputs={
+                "eventId": "string",
+            },
+            function_outputs={}
         )
-
     ]
