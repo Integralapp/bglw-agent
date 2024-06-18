@@ -1,22 +1,32 @@
 from config import BT_API_KEY, MODEL_ID
 from src.llm import generate
-from src.email import check_for_emails
 from src.functions import retrieve_functions
 from src.prompt import system_prompt_with_functions
+
+from src.google_email import email_thread_to_messages
 import requests
 
-# @Shrey Bohra we need to turn this into 
+# @Shrey Bohra we need to turn this into a webhook
 if __name__ == "__main__":
     from dotenv import load_dotenv
+
     load_dotenv()
+    conversation_id = "PLACEHOLDER"
 
     # Retrieve functions from a specific API documentation
     functions = retrieve_functions()
 
-    # Inject system prompt with relevant functions that can be used
-    prompt = system_prompt_with_functions(functions)
+    # Inject system prompt without functions (passed into Groq directly)
+    prompt = system_prompt(additional_context="")
 
-    # @Shrey Bohra 
+    # Retrieve full email thread and transform to OpenAI message format
+    messages = email_thread_to_messages(conversation_id=conversation_id)
 
-    generation = generate([{"role": "system", "content": prompt}, {"role": "user", "content": "How are you?"}], stream=False)
+    available_functions = {func["name"]: func.func for func in functions}
+
+    generation = generate(
+        [{"role": "system", "content": prompt}, *messages],
+        available_functions,
+        stream=False,
+    )
     print(generation)

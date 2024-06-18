@@ -2,3 +2,4 @@ groq
 requests
 oauth2client
 apiclient
+httplib2
