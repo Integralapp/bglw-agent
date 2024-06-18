@@ -143,4 +143,4 @@ dmypy.json
 cython_debug/
 
 # Google Credentials
-credentials.json
+client_secrets.json

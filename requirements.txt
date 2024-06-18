@@ -1,4 +1,4 @@
 groq
-dotenv
 requests
-imaplib
+oauth2client
+apiclient
