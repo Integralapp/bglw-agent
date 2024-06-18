@@ -2,8 +2,8 @@ import logging
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
 from apiclient.discovery import build
-# ...
 
+# ...
 
 # Path to client_secrets.json which should contain a JSON document such as:
 #   {
