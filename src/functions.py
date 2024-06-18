@@ -43,7 +43,7 @@ class Functions(TypedDict):
                 "description": self["description"],
                 "parameters": {
                     "type": "object",
-                    "properties": self["properties"],
+                    "properties": properties,
                     "required": self["required"],
                 },
             },

@@ -1,10 +1,9 @@
 from config import BT_API_KEY, MODEL_ID
 from src.llm import generate
 from src.functions import retrieve_functions
-from src.prompt import system_prompt_with_functions
+from src.prompt import system_prompt
 
-from src.google_email import email_thread_to_messages
-import requests
+from src.google_email import create_and_send_response, email_thread_to_messages
 
 # @Shrey Bohra we need to turn this into a webhook
 if __name__ == "__main__":
@@ -22,11 +21,16 @@ if __name__ == "__main__":
     # Retrieve full email thread and transform to OpenAI message format
     messages = email_thread_to_messages(conversation_id=conversation_id)
 
+    # Format the allowed functions to be hit
     available_functions = {func["name"]: func.func for func in functions}
 
+    # Do recursive function calling on a specific prompt until desired output and functions have been executed
+    # TODO: Implement the individual functions on the calendar API
     generation = generate(
         [{"role": "system", "content": prompt}, *messages],
         available_functions,
         stream=False,
     )
-    print(generation)
+
+    # Add a new message to the thread
+    create_and_send_response(generation, thread_id="FILL THIS OUT")

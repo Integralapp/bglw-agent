@@ -69,3 +69,32 @@ def email_thread_to_messages(conversation_id):
         messages.append({"role": role, "content": content})
 
     return messages
+
+
+def create_and_send_response(message: str, thread_id: str):
+    credentials_file = "path/to/your/credentials.json"
+
+    # Define the service scope
+    scopes = ["https://www.googleapis.com/auth/gmail.readonly"]
+
+    # Build the service object
+    credentials = ServiceAccountCredentials.from_json_keyfile_name(
+        credentials_file, scopes
+    )
+    http = credentials.authorize(Http())
+
+    service = build("chat", "v1", credentials=credentials)
+
+    message_body = {"text": message, "thread": {"name": thread_id}}
+
+    try:
+        response = (
+            service.spaces()
+            .messages()
+            .create(parent=thread_id.split("/messages/")[0], body=message_body)
+            .execute()
+        )
+
+        print(f"message sent {response}")
+    except Exception as e:
+        print(f"an error happened: {e}")

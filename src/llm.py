@@ -52,7 +52,7 @@ def generate(
                     "tool_call_id": tool_call.id,
                     "role": "tool",
                     "name": function_name,
-                    "content": "function_response",
+                    "content": function_response,
                 }
             )
 
