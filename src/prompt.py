@@ -1,15 +1,5 @@
 from typing import Dict, List, TypedDict
-
-
-class Functions(TypedDict):
-    function_name: str
-    function_inputs: List[Dict[str, str]]
-    function_outputs: List[Dict[str, str]]
-
-    def __str__(self):
-        inputs = ', '.join([f"{name}: {typ}" for input in self['function_inputs'] for name, typ in input.items()])
-        outputs = ', '.join([f"{name}: {typ}" for output in self['function_outputs'] for name, typ in output.items()])
-        return f"Function Name: {self['function_name']}\nInputs: {inputs}\nOutputs: {outputs}"
+from src.functions import Functions
 
 def system_prompt_with_functions(functions: List[Functions], *args, **kwargs):
     prompt = """
@@ -25,6 +15,7 @@ def system_prompt_with_functions(functions: List[Functions], *args, **kwargs):
     function_descriptions = [str(function) for function in functions]
     
     prompt += "\n\n".join(function_descriptions)
+
+    prompt += "\n\n Please make sure that your output is in this structure: \n\n{Function Name}\n{input_1}\n{input_2}\n{input_3}\n to fill out as many inputs as needed"
     
     return prompt
-

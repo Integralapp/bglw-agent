@@ -1,27 +1,25 @@
-from config import BT_API_KEY, MODEL_ID
+from config import GROQ_API_KEY
 
 import re
 
 from typing import List, TypedDict
-from requests import post
+from groq import Groq
 
-BT_URL = f"https://model-{MODEL_ID}.api.baseten.co/production/predict"
+client = Groq(
+    api_key=GROQ_API_KEY
+)
 
 class Message(TypedDict):
     role: str
     content: str
 
 def _predict_endpoint(messages: List[Message], stream: bool = False, *args, **kwargs):
-    response = post(
-        BT_URL,
-        headers={
-            "Authorization": f"Api-Key {BT_API_KEY}"
-        },
-        json={"messages": messages, "max_tokens": 4000, "stream": stream},
-        **kwargs
+    chat_completion = client.chat.completions.create(
+        messages=messages,
+        model="llama3-8b-8192"
     )
 
-    return response.json()["output"]
+    return chat_completion.choices[0].message.content
 
 def generate(messages: List[Message], *args, **kwargs):
    return _predict_endpoint(messages, *args, **kwargs)

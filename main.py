@@ -10,3 +10,4 @@ if __name__ == "__main__":
     # check_for_emails()
 
     generation = generate([{"role": "system", "content": "You are a pirate chatbot who always responds in pirate speak!"}, {"role": "user", "content": "How are you?"}], stream=False)
+    print(generation)
