@@ -179,7 +179,7 @@ def get_credentials(authorization_code, state):
     email_address = user_info.get("email")
     user_id = user_info.get("id")
     if credentials.refresh_token is not None:
-      store_credentials(user_id, credentials)
+      # store_credentials(user_id, credentials)
       return credentials
     else:
       credentials = get_stored_credentials(user_id)
