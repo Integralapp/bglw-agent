@@ -10,6 +10,7 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
+    # Retrieve conversation ID through API call (from message ID in webhook sig)
     conversation_id = "PLACEHOLDER"
 
     # Retrieve functions from a specific API documentation
@@ -33,4 +34,4 @@ if __name__ == "__main__":
     )
 
     # Add a new message to the thread
-    create_and_send_response(generation, thread_id="FILL THIS OUT")
+    create_and_send_response(generation, thread_id=conversation_id)

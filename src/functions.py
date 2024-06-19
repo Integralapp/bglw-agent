@@ -1,4 +1,14 @@
 from typing import List, Dict, TypedDict, Callable
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+# Load credentials from the credentials.json file
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+CREDENTIALS_FILE = 'path/to/credentials.json'
+
+credentials = service_account.Credentials.from_service_account_file(
+    CREDENTIALS_FILE, scopes=SCOPES)
+service = build('calendar', 'v3', credentials=credentials)
 
 
 class Functions(TypedDict):
@@ -49,6 +59,52 @@ class Functions(TypedDict):
             },
         }
 
+def insert_event(summary, location, description, timeZone, startTime, endTime):
+    event_data = {
+        "summary": summary,
+        "location": location,
+        "description": description,
+        "start": {
+            "dateTime": startTime,
+            "timeZone": timeZone,
+        },
+        "end": {
+            "dateTime": endTime,
+            "timeZone": timeZone,
+        }
+    }
+    event = service.events().insert(calendarId='primary', body=event_data).execute()
+    return {"htmlLink": event.get("htmlLink")}
+
+def list_events(attendee_email):
+    events_result = service.events().list(
+        calendarId='primary', q=attendee_email).execute()
+    events = events_result.get('items', [])
+    return events
+
+def edit_event(event_id, additional_guests, end_date, end_datetime, location, start_date, start_datetime, summary):
+    event_data = {
+        "summary": summary,
+        "location": location,
+        "start": {
+            "dateTime": start_datetime,
+            "timeZone": "EST",  # Adjust as needed
+        },
+        "end": {
+            "dateTime": end_datetime,
+            "timeZone": "EST",  # Adjust as needed
+        },
+        "attendees": [
+            {"email": email} for email in additional_guests.split(',')
+        ]
+    }
+    event = service.events().update(calendarId='primary',
+                                    eventId=event_id, body=event_data).execute()
+    return event
+
+def delete_event(event_id):
+    service.events().delete(calendarId='primary', eventId=event_id).execute()
+    return {}
 
 # Hardcoded function retrieval for now
 def retrieve_functions():
@@ -68,6 +124,7 @@ def retrieve_functions():
                 "htmlLink": {"type": "string"},
             },
             required=["summary", "startTime", "endTime"],
+            func=insert_event,
         ),
         Functions(
             name="listEvents",
@@ -85,6 +142,7 @@ def retrieve_functions():
                 "endTime": {"type": "string"},
             },
             required=["attendee_email"],
+            func=list_events,
         ),
         Functions(
             name="editEvent",
@@ -108,6 +166,7 @@ def retrieve_functions():
                 "endTime": {"type": "string"},
             },
             required=["event_id"],
+            func=edit_event,
         ),
         Functions(
             name="deleteEvent",
@@ -117,5 +176,6 @@ def retrieve_functions():
             },
             outputs={},
             required=["event_id"],
+            func=delete_event,
         ),
     ]
