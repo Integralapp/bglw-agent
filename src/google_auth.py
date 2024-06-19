@@ -17,8 +17,8 @@ import httplib2
 #       "token_uri": "https://accounts.google.com/o/oauth2/token"
 #     }
 #   }
-CLIENTSECRETS_LOCATION = "<PATH/TO/CLIENT_SECRETS.JSON>"
-REDIRECT_URI = "<YOUR_REGISTERED_REDIRECT_URI>"
+CLIENTSECRETS_LOCATION = "client_secrets.json"
+REDIRECT_URI = "https://d34a87e3-5c4a-48d5-ac70-2ab20dd99ce7-00-3rqnfjri8sg5.kirk.replit.dev:5000"
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/userinfo.email",
@@ -140,12 +140,14 @@ def get_authorization_url(email_address, state):
     Returns:
       Authorization URL to redirect the user to.
     """
-  flow = flow_from_clientsecrets(CLIENTSECRETS_LOCATION, " ".join(SCOPES))
+  flow = flow_from_clientsecrets(CLIENTSECRETS_LOCATION,
+                                 " ".join(SCOPES),
+                                 redirect_uri=REDIRECT_URI)
   flow.params["access_type"] = "offline"
   flow.params["approval_prompt"] = "force"
   flow.params["user_id"] = email_address
   flow.params["state"] = state
-  return flow.step1_get_authorize_url(REDIRECT_URI)
+  return flow.step1_get_authorize_url()
 
 
 def get_credentials(authorization_code, state):
@@ -170,7 +172,7 @@ def get_credentials(authorization_code, state):
       NoRefreshTokenException: No refresh token could be retrieved from the
                                available sources.
     """
-  email_address = ""
+  email_address = "shreybohra@gmail.com"
   try:
     credentials = exchange_code(authorization_code)
     user_info = get_user_info(credentials)
@@ -195,3 +197,13 @@ def get_credentials(authorization_code, state):
   # No refresh token has been retrieved.
   authorization_url = get_authorization_url(email_address, state)
   raise NoRefreshTokenException(authorization_url)
+
+
+def main():
+  """Main function."""
+  email_address = "shreybohra@gmail.com"
+  authorization_url = get_authorization_url(email_address, "")
+  print("Please go to this URL: %s" % authorization_url)
+
+
+main()
