@@ -3,6 +3,7 @@ import logging
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
 from googleapiclient.discovery import build
+import httplib2
 
 # ...
 
@@ -122,8 +123,8 @@ def get_user_info(credentials):
   user_info = None
   try:
     user_info = user_info_service.userinfo().get().execute()
-  except errors.HttpError as e:
-    logging.error("An error occurred: %s", e)
+  except Exception as error:
+    logging.error("An error occurred: %s", error)
   if user_info and user_info.get("id"):
     return user_info
   else:
