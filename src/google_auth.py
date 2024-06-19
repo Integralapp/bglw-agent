@@ -2,7 +2,7 @@ from email import errors
 import logging
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
-from apiclient.discovery import build
+from googleapiclient.discovery import build
 
 # ...
 
