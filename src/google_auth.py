@@ -24,6 +24,7 @@ SCOPES = [
     # Add other requested scopes.
 ]
 
+
 class GetCredentialsException(Exception):
   """Error raised when an error occurred while retrieving credentials.
 
@@ -114,9 +115,9 @@ def get_user_info(credentials):
   Returns:
     User information as a dict.
   """
-  user_info_service = build(
-      serviceName='oauth2', version='v2',
-      http=credentials.authorize(httplib2.Http()))
+  user_info_service = build(serviceName='oauth2',
+                            version='v2',
+                            http=credentials.authorize(httplib2.Http()))
   user_info = None
   try:
     user_info = user_info_service.userinfo().get().execute()
