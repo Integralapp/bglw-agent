@@ -12,6 +12,63 @@ class Message(TypedDict):
     content: str
 
 
+def to_tool(func):
+    properties = {
+        name: {"type": typ["type"]}
+        for input in func["inputs"]
+        for name, typ in input.items()
+    }
+    return {
+        "type": "function",
+        "function": {
+            "name": func["name"],
+            "description": func["description"],
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": func["required"],
+            },
+        },
+    }
+
+to_tool = {
+    "insert_event": {
+        "type": "function",
+        "function": {
+            "name": "insert_event",
+            "description": "Insert a new event in the calendar",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "receiver_email": {"type": "string"},
+                        "summary": {"type": "string"},
+                        "location": {"type": "string"},
+                        "description": {"type": "string"},
+                        "timeZone": {"type": "string"},
+                        "startTime": {"type": "string"},
+                        "endTime": {"type": "string"},
+                    },
+                    "required": ["receiver_email", "summary", "startTime", "endTime"],
+            },
+        }
+    },
+    "delete_event": {
+        "type": "function",
+        "function": {
+            "name": "delete_event",
+            "description": "Delete an event from the calendar",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "receiver_email": {"type": "string"},
+                    },
+                    "required": ["receiver_email"],
+                },
+        }
+    }
+}
+
+
 def _predict_endpoint(
     messages: List[Message],
     functions: List[Functions],
@@ -22,7 +79,7 @@ def _predict_endpoint(
     chat_completion = client.chat.completions.create(
         messages=messages,
         model="llama3-70b-8192",
-        tool_call=[function.to_tool() for function in functions],
+        tools=[to_tool[func["name"]] for func in functions],
         tool_choice="auto",
         max_tokens=4096,
     )
@@ -31,16 +88,16 @@ def _predict_endpoint(
 
 
 def generate(
-    messages: List[Message], available_functions: dict[str, any], *args, **kwargs
+    messages: List[Message], functions: List[Functions], available_functions: dict[str, any], *args, **kwargs
 ):
-    response = _predict_endpoint(messages, *args, **kwargs)
+    response = _predict_endpoint(messages, functions, *args, **kwargs)
 
     response_message = response.choices[0].message
     tool_calls = response_message.tool_calls
 
     while tool_calls:
         for tool_call in tool_calls:
-            function_name = tool_call.function_name
+            function_name = tool_call.function.name
 
             function_to_call = available_functions[function_name]
             function_to_call_args = json.loads(tool_call.function.arguments)

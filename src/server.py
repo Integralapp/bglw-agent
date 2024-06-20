@@ -1,6 +1,6 @@
 from flask import Flask
 from flask import request
-from .google_auth import get_credentials
+from google_auth import get_credentials
 from googleapiclient.discovery import build
 import httplib2
 

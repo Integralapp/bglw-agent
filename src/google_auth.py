@@ -23,6 +23,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
+    'https://www.googleapis.com/auth/calendar',
     # Add other requested scopes.
 ]
 
@@ -172,7 +173,7 @@ def get_credentials(authorization_code, state):
       NoRefreshTokenException: No refresh token could be retrieved from the
                                available sources.
     """
-  email_address = "shreybohra@gmail.com"
+  email_address = "jainshreyp@gmail.com"
   try:
     credentials = exchange_code(authorization_code)
     user_info = get_user_info(credentials)

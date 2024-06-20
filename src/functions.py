@@ -1,15 +1,11 @@
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import smtplib
 from typing import List, Dict, TypedDict, Callable
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-
-# Load credentials from the credentials.json file
-SCOPES = ['https://www.googleapis.com/auth/calendar']
-CREDENTIALS_FILE = 'path/to/credentials.json'
-
-credentials = service_account.Credentials.from_service_account_file(
-    CREDENTIALS_FILE, scopes=SCOPES)
-service = build('calendar', 'v3', credentials=credentials)
-
+from icalendar import Calendar, Event
+from datetime import datetime, timedelta
 
 class Functions(TypedDict):
     name: str
@@ -17,7 +13,6 @@ class Functions(TypedDict):
     inputs: List[Dict[str, Dict[str, str]]]
     outputs: List[Dict[str, Dict[str, str]]]
     required: List[str]
-    func: Callable
 
     def __init__(self, func):
         super(Functions, self).__init__()
@@ -59,48 +54,66 @@ class Functions(TypedDict):
             },
         }
 
-def insert_event(summary, location, description, timeZone, startTime, endTime):
-    event_data = {
-        "summary": summary,
-        "location": location,
-        "description": description,
-        "start": {
-            "dateTime": startTime,
-            "timeZone": timeZone,
-        },
-        "end": {
-            "dateTime": endTime,
-            "timeZone": timeZone,
-        }
-    }
-    event = service.events().insert(calendarId='primary', body=event_data).execute()
-    return {"htmlLink": event.get("htmlLink")}
+def insert_event(receiver_email, summary, location, description, timeZone, startTime, endTime):
+    try:
+        # Step 1: Create the calendar event
+        cal = Calendar()
+        event = Event()
+
+        event.add('summary', summary)
+        event.add('dtstart', datetime(startTime))
+        event.add('dtend', datetime(endTime))
+        event.add('description', description)
+        event.add('location', location)
+
+        cal.add_component(event)
+
+        # Write to .ics file
+        with open('event.ics', 'wb') as f:
+            f.write(cal.to_ical())
+
+        sender_email = "bglwagent@gmail.com"
+        password = "gkkm uuiy gsvk cbil"
+
+        # Create the email
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = receiver_email
+        msg['Subject'] = "Meeting Invitation"
+
+        # Attach the .ics file
+        with open('event.ics', 'rb') as f:
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(f.read())
+            encoders.encode_base64(part)
+            part.add_header('Content-Disposition', f'attachment; filename=event.ics')
+            msg.attach(part)
+
+        # Add email body
+        body = "Please find the attached calendar invite for our meeting."
+        msg.attach(MIMEText(body, 'plain'))
+
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(sender_email, password)
+            text = msg.as_string()
+            server.sendmail(sender_email, receiver_email, text)
+            print("Email sent successfully!")
+
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            server.quit()
+    except Exception as e:
+        print(e)
+        raise e
 
 def list_events(attendee_email):
     events_result = service.events().list(
         calendarId='primary', q=attendee_email).execute()
     events = events_result.get('items', [])
     return events
-
-def edit_event(event_id, additional_guests, end_date, end_datetime, location, start_date, start_datetime, summary):
-    event_data = {
-        "summary": summary,
-        "location": location,
-        "start": {
-            "dateTime": start_datetime,
-            "timeZone": "EST",  # Adjust as needed
-        },
-        "end": {
-            "dateTime": end_datetime,
-            "timeZone": "EST",  # Adjust as needed
-        },
-        "attendees": [
-            {"email": email} for email in additional_guests.split(',')
-        ]
-    }
-    event = service.events().update(calendarId='primary',
-                                    eventId=event_id, body=event_data).execute()
-    return event
 
 def delete_event(event_id):
     service.events().delete(calendarId='primary', eventId=event_id).execute()
@@ -110,9 +123,10 @@ def delete_event(event_id):
 def retrieve_functions():
     return [
         Functions(
-            name="insertEvent",
+            name="insert_event",
             description="Create a new event in the personal calendar",
             inputs={
+                "receiver_email": {"type": "string"},
                 "summary": {"type": "string"},
                 "location": {"type": "string"},
                 "description": {"type": "string"},
@@ -123,59 +137,23 @@ def retrieve_functions():
             outputs={
                 "htmlLink": {"type": "string"},
             },
-            required=["summary", "startTime", "endTime"],
-            func=insert_event,
+            required=["receiver_email", "summary", "startTime", "endTime"],
         ),
         Functions(
-            name="listEvents",
-            description="Retrieve a single event given the attendee email",
-            inputs={
-                "attendee_email": {"type": "string"},
-            },
-            outputs={
-                "id": {"type": "string"},
-                "summary": {"type": "string"},
-                "location": {"type": "string"},
-                "description": {"type": "string"},
-                "timeZone": {"type": "string"},
-                "startTime": {"type": "string"},
-                "endTime": {"type": "string"},
-            },
-            required=["attendee_email"],
-            func=list_events,
-        ),
-        Functions(
-            name="editEvent",
-            description="Edit event by ID after retrieving event ID from listEvents",
-            inputs={
-                "event_id": {"type": "string"},
-                "additional_guests": {"type": "string"},
-                "end_date": {"type": "string"},
-                "end_datetime": {"type": "string"},
-                "location": {"type": "string"},
-                "start_date": {"type": "string"},
-                "start_datetime": {"type": "string"},
-                "summary": {"type": "string"},
-            },
-            outputs={
-                "summary": {"type": "string"},
-                "location": {"type": "string"},
-                "description": {"type": "string"},
-                "timeZone": {"type": "string"},
-                "startTime": {"type": "string"},
-                "endTime": {"type": "string"},
-            },
-            required=["event_id"],
-            func=edit_event,
-        ),
-        Functions(
-            name="deleteEvent",
+            name="delete_event",
             description="Delete an event after retrieving event ID from listEvents",
             inputs={
-                "event_id": {"type": "string"},
+                "receiver_email": {"type": "string"},
             },
-            outputs={},
-            required=["event_id"],
-            func=delete_event,
+            outputs={
+                "success": {"type": "boolean"}
+            },
+            required=["receiver_email"],
         ),
     ]
+
+
+functions_mapping = {
+    "insert_event": insert_event,
+    "delete_event": delete_event,
+}

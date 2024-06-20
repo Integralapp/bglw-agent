@@ -145,3 +145,4 @@ cython_debug/
 # Google Credentials
 client_secrets.json
 email_agent_google_secrets.json
+credentials.json
