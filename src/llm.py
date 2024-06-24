@@ -71,7 +71,7 @@ to_tool = {
 
 def _predict_endpoint(
     messages: List[Message],
-    functions: List[Functions],
+    # functions: List[Functions],
     stream: bool = False,
     *args,
     **kwargs
@@ -79,8 +79,8 @@ def _predict_endpoint(
     chat_completion = client.chat.completions.create(
         messages=messages,
         model="llama3-70b-8192",
-        tools=[to_tool[func["name"]] for func in functions],
-        tool_choice="auto",
+        # tools=[to_tool[func["name"]] for func in functions],
+        # tool_choice="auto",
         max_tokens=4096,
     )
 

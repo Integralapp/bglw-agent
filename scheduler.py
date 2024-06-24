@@ -1,15 +1,18 @@
 import imaplib
 import email
 from email.header import decode_header
+import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from openai import OpenAI
+from pinecone import Pinecone
 import time
 
 from src.functions import retrieve_functions, functions_mapping
 from src.google_email import create_and_send_response, email_thread_to_messages
-from src.llm import generate
-from src.prompt import system_prompt
+from src.llm import _predict_endpoint, generate
+from src.prompt import system_prompt, system_prompt_with_retrieval
 
 # Account credentials
 username = "bglwagent@gmail.com"
@@ -18,6 +21,13 @@ imap_server = "imap.gmail.com"
 smtp_server = "smtp.gmail.com"
 smtp_port = 587  # Usually 587 for TLS
 # Function to check for new emails
+
+pc = Pinecone(api_key=os.getenv("PC_API_KEY"))
+index = pc.Index("bglw")
+
+client = OpenAI(
+    api_key=os.getenv("OAI_API_KEY")
+)
 
 def check_emails():
     try:
@@ -36,9 +46,8 @@ def check_emails():
         print(f"Found {len(email_ids)} new emails")
         emails_list = []
 
-        content = ""
-
         for email_id in email_ids:
+            content = ""
             # Fetch the email by ID
             status, msg_data = mail.fetch(email_id, "(RFC822)")
             for response_part in msg_data:
@@ -82,12 +91,12 @@ def check_emails():
                             content += body
                     print(f"EMAIL FROM {from_}: {content}")
                     emails_list.append({
-                        "role": "assistant" if from_.contains("bglwagent@gmail.com") else "user",
+                        "role": "assistant" if from_ == "bglwagent@gmail.com" else "user",
                         "content": f"EMAIL FROM {from_}: {content}"
                     })
 
                     # Send a response
-                    send_response(emails_list, from_, subject)
+                    send_response(emails_list, emails_list[-1]["content"], from_, subject)
             print("="*50)
         # Close the connection and logout
         mail.close()
@@ -96,40 +105,52 @@ def check_emails():
         print(f"An error occurred: {e}")
 
 # Function to send a response
+        # from dotenv import load_dotenv
 
+        # load_dotenv()
 
-def send_response(messages, to_email, original_subject):
+        # # Retrieve functions from a specific API documentation
+        # functions = retrieve_functions()
+
+        # # Inject system prompt without functions (passed into Groq directly)
+        # prompt = system_prompt(additional_context="")
+
+        # # Retrieve full email thread and transform to OpenAI message format
+        # # messages = email_thread_to_messages(conversation_id=conversation_id)
+
+        # # Format the allowed functions to be hit
+        # available_functions = functions_mapping
+
+        # # Do recursive function calling on a specific prompt until desired output and functions have been executed
+
+        # print(
+        #     [{"role": "system", "content": prompt}, *messages]
+        # )
+        # generation = generate(
+        #     [{"role": "system", "content": prompt}, *messages],
+        #     functions,
+        #     available_functions=available_functions,
+        #     stream=False,
+        # )
+
+def send_response(messages, last_message_content, to_email, original_subject):
     try:
+        query_embedding = client.embeddings.create(
+            input=last_message_content,
+            model="text-embedding-3-small"
+        ).data[0].embedding
 
-        from dotenv import load_dotenv
+        retrieval = index.query(
+            vector=query_embedding,
+            top_k=3,
+            include_metadata=True,
+        )["matches"]
 
-        load_dotenv()
+        prompt = system_prompt_with_retrieval(retrieval)
 
-        # Retrieve functions from a specific API documentation
-        functions = retrieve_functions()
-
-        # Inject system prompt without functions (passed into Groq directly)
-        prompt = system_prompt(additional_context="")
-
-        # Retrieve full email thread and transform to OpenAI message format
-        # messages = email_thread_to_messages(conversation_id=conversation_id)
-
-        # Format the allowed functions to be hit
-        available_functions = functions_mapping
-
-        # Do recursive function calling on a specific prompt until desired output and functions have been executed
-
-        print(
-            [{"role": "system", "content": prompt}, *messages]
-        )
-        generation = generate(
+        generation = _predict_endpoint(
             [{"role": "system", "content": prompt}, *messages],
-            functions,
-            available_functions=available_functions,
-            stream=False,
-        )
-
-        print(generation)
+        ).choices[0].message.content
 
         # Create the email
         msg = MIMEMultipart()
@@ -151,6 +172,7 @@ def send_response(messages, to_email, original_subject):
     except Exception as e:
         print(f"Failed to send response to {to_email}: {e}")
         raise e
+    
     
 
 
