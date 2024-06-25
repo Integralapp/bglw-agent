@@ -1,9 +1,13 @@
-from flask import Flask, jsonify
+from flask import Flask
 from flask import request
 from google_auth import get_credentials
 from googleapiclient.discovery import build
 import httplib2
-import base64
+
+from functions import retrieve_functions
+from llm import generate
+from prompt import system_prompt
+from google_email import email_thread_to_messages, create_and_send_response
 
 app = Flask(__name__)
 
@@ -47,38 +51,36 @@ def process_incoming_webhook():
     payload = request.get_json()
     print(payload)
     message = payload["message"]
-    message_id = message["messageId"]
-    return request.json
+    conversation_id = message["messageId"]
 
-
-# from dotenv import load_dotenv
-
-# load_dotenv()
-# # Retrieve conversation ID through API call (from message ID in webhook sig)
-# conversation_id = "PLACEHOLDER"
-
-# # Retrieve functions from a specific API documentation
-# functions = retrieve_functions()
-
-# # Inject system prompt without functions (passed into Groq directly)
-# prompt = system_prompt(additional_context="")
-
-# # Retrieve full email thread and transform to OpenAI message format
-# messages = email_thread_to_messages(conversation_id=conversation_id)
-
-# # Format the allowed functions to be hit
-# available_functions = {func["name"]: func.func for func in functions}
-
-# # Do recursive function calling on a specific prompt until desired output and functions have been executed
-# # TODO: Implement the individual functions on the calendar API
-# generation = generate(
-#     [{
-#         "role": "system",
-#         "content": prompt
-#     }, *messages],
-#     available_functions,
-#     stream=False,
-# )
-
-# # Add a new message to the thread
-# create_and_send_response(generation, thread_id=conversation_id)
+    from dotenv import load_dotenv
+    
+    load_dotenv()
+    # Retrieve conversation ID through API call (from message ID in webhook sig)
+    conversation_id = "PLACEHOLDER"
+    
+    # Retrieve functions from a specific API documentation
+    functions = retrieve_functions()
+    
+    # Inject system prompt without functions (passed into Groq directly)
+    prompt = system_prompt(additional_context="")
+    
+    # Retrieve full email thread and transform to OpenAI message format
+    messages = email_thread_to_messages(conversation_id=conversation_id)
+    
+    # Format the allowed functions to be hit
+    available_functions = {func["name"]: func.func for func in functions}
+    
+    # Do recursive function calling on a specific prompt until desired output and functions have been executed
+    # TODO: Implement the individual functions on the calendar API
+    generation = generate(
+        [{
+            "role": "system",
+            "content": prompt
+        }, *messages],
+        available_functions,
+        stream=False,
+    )
+    
+    # Add a new message to the thread
+    create_and_send_response(generation, thread_id=conversation_id)

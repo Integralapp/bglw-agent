@@ -6,6 +6,10 @@ import smtplib
 from typing import List, Dict, TypedDict, Callable
 from icalendar import Calendar, Event
 from datetime import datetime, timedelta
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from server import global_gmail_service as service
+
 
 class Functions(TypedDict):
     name: str
@@ -19,25 +23,21 @@ class Functions(TypedDict):
         self.func = func
 
     def __str__(self):
-        inputs = ", ".join(
-            [
-                f"{name}: {typ}"
-                for input in self["inputs"]
-                for name, typ in input.items()
-            ]
-        )
-        outputs = ", ".join(
-            [
-                f"{name}: {typ}"
-                for output in self["outputs"]
-                for name, typ in output.items()
-            ]
-        )
+        inputs = ", ".join([
+            f"{name}: {typ}" for input in self["inputs"]
+            for name, typ in input.items()
+        ])
+        outputs = ", ".join([
+            f"{name}: {typ}" for output in self["outputs"]
+            for name, typ in output.items()
+        ])
         return f"Function Name: {self['name']}\nDescription: {self['description']} \nInputs: {inputs}\nOutputs: {outputs}"
 
     def to_tool(self):
         properties = {
-            name: {"type": typ["type"]}
+            name: {
+                "type": typ["type"]
+            }
             for input in self["inputs"]
             for name, typ in input.items()
         }
@@ -54,7 +54,9 @@ class Functions(TypedDict):
             },
         }
 
-def insert_event(receiver_email, summary, location, description, timeZone, startTime, endTime):
+
+def insert_event(receiver_email, summary, location, description, timeZone,
+                 startTime, endTime):
     try:
         # Step 1: Create the calendar event
         cal = Calendar()
@@ -86,7 +88,8 @@ def insert_event(receiver_email, summary, location, description, timeZone, start
             part = MIMEBase('application', 'octet-stream')
             part.set_payload(f.read())
             encoders.encode_base64(part)
-            part.add_header('Content-Disposition', f'attachment; filename=event.ics')
+            part.add_header('Content-Disposition',
+                            f'attachment; filename=event.ics')
             msg.attach(part)
 
         # Add email body
@@ -109,45 +112,67 @@ def insert_event(receiver_email, summary, location, description, timeZone, start
         print(e)
         raise e
 
+
 def list_events(attendee_email):
-    events_result = service.events().list(
-        calendarId='primary', q=attendee_email).execute()
+    events_result = service.events().list(calendarId='primary',
+                                          q=attendee_email).execute()
     events = events_result.get('items', [])
     return events
+
 
 def delete_event(event_id):
     service.events().delete(calendarId='primary', eventId=event_id).execute()
     return {}
 
+
 # Hardcoded function retrieval for now
-def retrieve_functions():
+def retrieve_functions(service):
     return [
         Functions(
             name="insert_event",
             description="Create a new event in the personal calendar",
             inputs={
-                "receiver_email": {"type": "string"},
-                "summary": {"type": "string"},
-                "location": {"type": "string"},
-                "description": {"type": "string"},
-                "timeZone": {"type": "string"},
-                "startTime": {"type": "string"},
-                "endTime": {"type": "string"},
+                "receiver_email": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "timeZone": {
+                    "type": "string"
+                },
+                "startTime": {
+                    "type": "string"
+                },
+                "endTime": {
+                    "type": "string"
+                },
             },
             outputs={
-                "htmlLink": {"type": "string"},
+                "htmlLink": {
+                    "type": "string"
+                },
             },
             required=["receiver_email", "summary", "startTime", "endTime"],
         ),
         Functions(
             name="delete_event",
-            description="Delete an event after retrieving event ID from listEvents",
+            description=
+            "Delete an event after retrieving event ID from listEvents",
             inputs={
-                "receiver_email": {"type": "string"},
+                "receiver_email": {
+                    "type": "string"
+                },
             },
-            outputs={
-                "success": {"type": "boolean"}
-            },
+            outputs={"success": {
+                "type": "boolean"
+            }},
             required=["receiver_email"],
         ),
     ]
