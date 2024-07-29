@@ -1,5 +1,5 @@
 from typing import Dict, List, TypedDict
-from src.functions import Functions
+# from src.functions import Functions
 
 
 def system_prompt(additional_context: str = "", *args, **kwargs):
@@ -17,7 +17,7 @@ def system_prompt(additional_context: str = "", *args, **kwargs):
 
 def system_prompt_with_retrieval(retrievals, *args, **kwargs):
     system_prompt = '''
-    You are an AI assistant created by Bungalow NYC (a modern indian restaurant in NYC) to summarize the current drug information on the market. When doing so:
+    You are an AI assistant created by Bungalow NYC (a modern indian restaurant in NYC) to summarize the current information on the restaurant. When doing so:
 
     Make sure all responses are friendly, inviting, and extremely hospitable. You will be provided with relevant context in this system prompt that can help with answering the user's query.
 
@@ -36,7 +36,7 @@ def system_prompt_with_retrieval(retrievals, *args, **kwargs):
 
 
 
-def system_prompt_with_functions(functions: List[Functions], *args, **kwargs):
+def system_prompt_with_functions(functions: List, *args, **kwargs):
     prompt = """
     You are a large language model whose job is to output a function with a JSON containing the keys and values of parameters needed for that function.
 

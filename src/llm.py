@@ -1,6 +1,6 @@
 import json
 from config import GROQ_API_KEY
-from src.functions import Functions
+# from src.functions import Functions
 from typing import List, TypedDict, Dict
 from groq import Groq
 
@@ -88,7 +88,7 @@ def _predict_endpoint(
 
 
 def generate(
-    messages: List[Message], functions: List[Functions], available_functions: dict[str, any], *args, **kwargs
+    messages: List[Message], functions: List, available_functions: dict[str, any], *args, **kwargs
 ):
     response = _predict_endpoint(messages, functions, *args, **kwargs)
 

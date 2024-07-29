@@ -9,7 +9,7 @@ from openai import OpenAI
 from pinecone import Pinecone
 import time
 
-from src.functions import retrieve_functions, functions_mapping
+# from src.functions import retrieve_functions, functions_mapping
 from src.google_email import create_and_send_response, email_thread_to_messages
 from src.llm import _predict_endpoint, generate
 from src.prompt import system_prompt, system_prompt_with_retrieval
@@ -160,6 +160,7 @@ def send_response(messages, last_message_content, to_email, original_subject):
 
         # Email body
         body = generation
+        print("RESPONSE:      ", generation)
         msg.attach(MIMEText(body, "plain"))
 
         # Connect to the server

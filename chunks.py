@@ -1,7 +1,15 @@
+from urllib.parse import urljoin
 from openai import OpenAI
 from pinecone import Pinecone
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
+import requests
 import os
+import nltk
+from urllib.parse import urljoin, urlparse
+import time
+
+nltk.download('punkt')
 
 load_dotenv()
 
@@ -42,16 +50,77 @@ index = pc.Index("bglw")
 # Function to generate embeddings using OpenAI
 def generate_embeddings(text):
     response = client.embeddings.create(
-        input=[text],
+        input=text,
         model='text-embedding-3-small'  # Choose the appropriate model for embeddings
     )
     embeddings = response.data[0].embedding
     return embeddings
 
+def write_embeddings(chunks):
+    # Generate and store embeddings in Pinecone
+    for i, text in enumerate(chunks):
+        embeddings = generate_embeddings(text)
+        index.upsert(
+            vectors=[{"id": f'doc{i}', "values": embeddings, "metadata": {"text": text}}],
+        )
 
-# Generate and store embeddings in Pinecone
-for i, text in enumerate(bungalow_information):
-    embeddings = generate_embeddings(text)
-    index.upsert(
-        vectors=[{"id": f'doc{i}', "values": embeddings, "metadata": {"text": text}}],
-    )
+def split_text_into_chunks(text, chunk_size=500):
+    sentences = nltk.tokenize.sent_tokenize(text)
+    chunks = []
+    current_chunk = ""
+
+    for sentence in sentences:
+        if len(current_chunk) + len(sentence) + 1 <= chunk_size:
+            current_chunk += " " + sentence
+        else:
+            chunks.append(current_chunk.strip())
+            current_chunk = sentence
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+    
+    return chunks
+
+# Function to get all relative URLs on a page
+def get_all_relative_urls(base_url):
+    visited_urls = set()
+    urls_to_visit = [base_url]
+    all_text_chunks = []
+
+    while urls_to_visit:
+        current_url = urls_to_visit.pop(0)
+        visited_urls.add(current_url)
+
+        try:
+            print("Investigating", current_url)
+            response = requests.get(current_url)
+
+            backoff = 1
+            while response.status_code == 429:
+                backoff *= 2
+                time.sleep(backoff)
+                print(f"Investigating with a {backoff} second delay", current_url)
+                response = requests.get(current_url)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            page_text = soup.get_text()
+            text_chunks = split_text_into_chunks(page_text)
+            all_text_chunks.extend([chunk for chunk in text_chunks if chunk not in all_text_chunks])
+
+            for link in soup.find_all('a', href=True):
+                full_url = urljoin(base_url, link['href'])
+                parsed_url = urlparse(full_url)
+                if parsed_url.netloc == urlparse(base_url).netloc and link["href"].startswith("/"):
+                    if full_url not in visited_urls and full_url not in urls_to_visit and not full_url.endswith(".pdf"):
+                        urls_to_visit.append(full_url)
+        except requests.RequestException as e:
+            print(f"Request failed: {e}")
+    
+    return all_text_chunks
+
+
+def main():
+    chunks = get_all_relative_urls("https://bungalowny.com")
+    write_embeddings(chunks)
+
+
+main()
