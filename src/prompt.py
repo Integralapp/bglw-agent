@@ -1,5 +1,5 @@
 from typing import Dict, List, TypedDict
-# from src.functions import Functions
+from .functions import Functions
 
 
 def system_prompt(additional_context: str = "", *args, **kwargs):
@@ -14,6 +14,7 @@ def system_prompt(additional_context: str = "", *args, **kwargs):
     prompt += additional_context
 
     return prompt
+
 
 def system_prompt_with_retrieval(retrievals, *args, **kwargs):
     system_prompt = '''
@@ -35,8 +36,7 @@ def system_prompt_with_retrieval(retrievals, *args, **kwargs):
     return system_prompt + context
 
 
-
-def system_prompt_with_functions(functions: List, *args, **kwargs):
+def system_prompt_with_functions(functions: List[Functions], *args, **kwargs):
     prompt = """
     You are a large language model whose job is to output a function with a JSON containing the keys and values of parameters needed for that function.
 

@@ -8,7 +8,6 @@ from icalendar import Calendar, Event
 from datetime import datetime, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from server import global_gmail_service as service
 
 
 class Functions(TypedDict):
@@ -113,20 +112,21 @@ def insert_event(receiver_email, summary, location, description, timeZone,
         raise e
 
 
-def list_events(attendee_email):
-    events_result = service.events().list(calendarId='primary',
-                                          q=attendee_email).execute()
+def list_events(attendee_email, gmail_service):
+    events_result = gmail_service.events().list(calendarId='primary',
+                                                q=attendee_email).execute()
     events = events_result.get('items', [])
     return events
 
 
-def delete_event(event_id):
-    service.events().delete(calendarId='primary', eventId=event_id).execute()
+def delete_event(event_id, gmail_service):
+    gmail_service.events().delete(calendarId='primary',
+                                  eventId=event_id).execute()
     return {}
 
 
 # Hardcoded function retrieval for now
-def retrieve_functions(service):
+def retrieve_functions(gmail_service):
     return [
         Functions(
             name="insert_event",
