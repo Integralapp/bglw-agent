@@ -10,6 +10,7 @@ from .functions import retrieve_functions
 from .llm import generate
 from .prompt import system_prompt
 from .google_email import email_thread_to_messages, create_and_send_response
+from .redis_client import RedisClient
 
 app = Flask(__name__)
 
@@ -91,7 +92,7 @@ def process_incoming_webhook():
             if "messagesAdded" in history:
                 for message in history["messagesAdded"]:
                     message_id = message["message"]["id"]
-
+                    RedisClient.enqueue(message_id)
                     # Add to queue
 
                     # Fetch the message details

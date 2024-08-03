@@ -4,3 +4,9 @@ oauth2client
 apiclient
 httplib2
 python-dotenv
+beautifulsoup4
+Flask
+nltk
+openai
+pinecone-client
+twilio
