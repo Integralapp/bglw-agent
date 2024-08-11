@@ -1,10 +1,10 @@
 import json
-from config import GROQ_API_KEY
-# from src.functions import Functions
+# from config import GROQ_API_KEY
+from .functions import Functions
 from typing import List, TypedDict, Dict
 from groq import Groq
 
-client = Groq(api_key=GROQ_API_KEY)
+client = Groq(api_key="temp")
 
 
 class Message(TypedDict):
@@ -14,7 +14,9 @@ class Message(TypedDict):
 
 def to_tool(func):
     properties = {
-        name: {"type": typ["type"]}
+        name: {
+            "type": typ["type"]
+        }
         for input in func["inputs"]
         for name, typ in input.items()
     }
@@ -23,13 +25,14 @@ def to_tool(func):
         "function": {
             "name": func["name"],
             "description": func["description"],
-                "parameters": {
-                    "type": "object",
-                    "properties": properties,
-                    "required": func["required"],
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": func["required"],
             },
         },
     }
+
 
 to_tool = {
     "insert_event": {
@@ -37,18 +40,33 @@ to_tool = {
         "function": {
             "name": "insert_event",
             "description": "Insert a new event in the calendar",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "receiver_email": {"type": "string"},
-                        "summary": {"type": "string"},
-                        "location": {"type": "string"},
-                        "description": {"type": "string"},
-                        "timeZone": {"type": "string"},
-                        "startTime": {"type": "string"},
-                        "endTime": {"type": "string"},
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "receiver_email": {
+                        "type": "string"
                     },
-                    "required": ["receiver_email", "summary", "startTime", "endTime"],
+                    "summary": {
+                        "type": "string"
+                    },
+                    "location": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "timeZone": {
+                        "type": "string"
+                    },
+                    "startTime": {
+                        "type": "string"
+                    },
+                    "endTime": {
+                        "type": "string"
+                    },
+                },
+                "required":
+                ["receiver_email", "summary", "startTime", "endTime"],
             },
         }
     },
@@ -57,25 +75,26 @@ to_tool = {
         "function": {
             "name": "delete_event",
             "description": "Delete an event from the calendar",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "receiver_email": {"type": "string"},
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "receiver_email": {
+                        "type": "string"
                     },
-                    "required": ["receiver_email"],
                 },
+                "required": ["receiver_email"],
+            },
         }
     }
 }
 
 
 def _predict_endpoint(
-    messages: List[Message],
-    # functions: List[Functions],
-    stream: bool = False,
-    *args,
-    **kwargs
-):
+        messages: List[Message],
+        # functions: List[Functions],
+        stream: bool = False,
+        *args,
+        **kwargs):
     chat_completion = client.chat.completions.create(
         messages=messages,
         model="llama3-70b-8192",
@@ -87,9 +106,8 @@ def _predict_endpoint(
     return chat_completion
 
 
-def generate(
-    messages: List[Message], functions: List, available_functions: dict[str, any], *args, **kwargs
-):
+def generate(messages: List[Message], functions: List[Functions],
+             available_functions: dict[str, any], *args, **kwargs):
     response = _predict_endpoint(messages, functions, *args, **kwargs)
 
     response_message = response.choices[0].message
@@ -104,18 +122,15 @@ def generate(
 
             function_response = function_to_call(**function_to_call_args)
 
-            messages.append(
-                {
-                    "tool_call_id": tool_call.id,
-                    "role": "tool",
-                    "name": function_name,
-                    "content": function_response,
-                }
-            )
+            messages.append({
+                "tool_call_id": tool_call.id,
+                "role": "tool",
+                "name": function_name,
+                "content": function_response,
+            })
 
-            response_message = (
-                _predict_endpoint(messages, *args, **kwargs).choices[0].messages
-            )
+            response_message = (_predict_endpoint(
+                messages, *args, **kwargs).choices[0].messages)
             tool_calls = response_message.tool_calls
 
     return response_message.content

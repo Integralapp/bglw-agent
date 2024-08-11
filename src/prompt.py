@@ -1,5 +1,5 @@
 from typing import Dict, List, TypedDict
-# from src.functions import Functions
+from .functions import Functions
 
 
 def system_prompt(additional_context: str = "", *args, **kwargs):
@@ -14,6 +14,7 @@ def system_prompt(additional_context: str = "", *args, **kwargs):
     prompt += additional_context
 
     return prompt
+
 
 def system_prompt_with_retrieval(retrievals, *args, **kwargs):
     system_prompt = '''

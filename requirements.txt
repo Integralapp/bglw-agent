@@ -3,6 +3,10 @@ requests
 oauth2client
 apiclient
 httplib2
-pinecone
-openai
 python-dotenv
+beautifulsoup4
+Flask
+nltk
+openai
+pinecone-client
+twilio
