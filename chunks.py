@@ -1,5 +1,4 @@
 from urllib.parse import urljoin
-from openai import OpenAI
 from pinecone import Pinecone
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -8,6 +7,9 @@ import os
 import nltk
 from urllib.parse import urljoin, urlparse
 import time
+from openai import OpenAI
+import urllib
+import re
 
 nltk.download('punkt')
 
@@ -45,13 +47,13 @@ Monday - Closed''',
 "Additionally, please note that we do not carry highchairs and our space cannot accommodate strollers. Therefore, we strongly recommend that children 10 year of age or younger do not accompany you to Bungalow."
 ]
 
-index = pc.Index("bglw")
+index = pc.Index("la")
 
 # Function to generate embeddings using OpenAI
 def generate_embeddings(text):
     response = client.embeddings.create(
         input=text,
-        model='text-embedding-3-small'  # Choose the appropriate model for embeddings
+        model='text-embedding-3-large'  # Choose the appropriate model for embeddings
     )
     embeddings = response.data[0].embedding
     return embeddings
@@ -59,6 +61,7 @@ def generate_embeddings(text):
 def write_embeddings(chunks):
     # Generate and store embeddings in Pinecone
     for i, text in enumerate(chunks):
+        print(f"Writing {i}th chunk: f{text[0:100]}...")
         embeddings = generate_embeddings(text)
         index.upsert(
             vectors=[{"id": f'doc{i}', "values": embeddings, "metadata": {"text": text}}],
@@ -81,46 +84,76 @@ def split_text_into_chunks(text, chunk_size=500):
     
     return chunks
 
+def is_file_url(url):
+    # Parse the URL
+    parsed_url = urllib.parse.urlparse(url)
+    
+    # Get the path component
+    path = parsed_url.path
+    
+    # Remove query parameters and fragments
+    path = re.sub(r'\?.*$', '', path)
+    path = re.sub(r'#.*$', '', path)
+    
+    # Check if the path has a file extension
+    return bool(re.search(r'\.[a-zA-Z0-9]+$', path))
+
+def clean_url(url: str):
+    return url.split('#')[0]
+
 # Function to get all relative URLs on a page
-def get_all_relative_urls(base_url):
+def get_all_relative_urls(base_url, timeout=10):
     visited_urls = set()
-    urls_to_visit = [base_url]
-    all_text_chunks = []
+    urls_to_visit = {base_url}
+    all_text_chunks = set()
 
     while urls_to_visit:
-        current_url = urls_to_visit.pop(0)
+        current_url = urls_to_visit.pop()
         visited_urls.add(current_url)
 
+        print(f"Investigating: {current_url}")
+        
         try:
-            print("Investigating", current_url)
-            response = requests.get(current_url)
-
+            response = requests.get(current_url, timeout=timeout)
+            
             backoff = 1
             while response.status_code == 429:
-                backoff *= 2
+                print(f"Rate limit hit. Retrying in {backoff} seconds...")
                 time.sleep(backoff)
-                print(f"Investigating with a {backoff} second delay", current_url)
-                response = requests.get(current_url)
+                backoff *= 2
+                response = requests.get(current_url, timeout=timeout)
+            
             soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Process text
             page_text = soup.get_text()
-            text_chunks = split_text_into_chunks(page_text)
-            all_text_chunks.extend([chunk for chunk in text_chunks if chunk not in all_text_chunks])
+            text_chunks = set(split_text_into_chunks(page_text))
+            all_text_chunks.update(text_chunks)
+            print(f"Added {len(text_chunks)} new text chunks")
 
+            # Process links
             for link in soup.find_all('a', href=True):
-                full_url = urljoin(base_url, link['href'])
+                full_url = clean_url(urljoin(base_url, link['href']))
                 parsed_url = urlparse(full_url)
-                if parsed_url.netloc == urlparse(base_url).netloc and link["href"].startswith("/"):
-                    if full_url not in visited_urls and full_url not in urls_to_visit and not full_url.endswith(".pdf"):
-                        urls_to_visit.append(full_url)
+                if parsed_url.netloc == urlparse(base_url).netloc and not is_file_url(link["href"]):
+                    if full_url not in visited_urls and full_url not in urls_to_visit:
+                        urls_to_visit.add(full_url)
+                        print(f"Found new URL to visit: {full_url}")
+            
+            print(f"Processed {current_url}. {len(urls_to_visit)} URLs left to visit.")
+        
+        except requests.Timeout:
+            print(f"Timeout occurred while processing: {current_url}")
         except requests.RequestException as e:
-            print(f"Request failed: {e}")
+            print(f"Request failed for {current_url}: {e}")
     
-    return all_text_chunks
+    print(f"Crawling complete. Processed {len(visited_urls)} URLs and collected {len(all_text_chunks)} unique text chunks.")
+    return list(all_text_chunks)
 
 
 def main():
-    chunks = get_all_relative_urls("https://bungalowny.com")
+    chunks = get_all_relative_urls("https://lealfre.com")
     write_embeddings(chunks)
 
-
-main()
+if __name__ == "__main__":
+    main()

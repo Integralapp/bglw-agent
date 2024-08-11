@@ -3,4 +3,6 @@ requests
 oauth2client
 apiclient
 httplib2
+pinecone
+openai
 python-dotenv

@@ -10,20 +10,20 @@ from pinecone import Pinecone
 import time
 
 # from src.functions import retrieve_functions, functions_mapping
-from src.google_email import create_and_send_response, email_thread_to_messages
+# from src.google_email import create_and_send_response, email_thread_to_messages
 from src.llm import _predict_endpoint, generate
-from src.prompt import system_prompt, system_prompt_with_retrieval
+from src.prompt import la_prompt_with_retrieval, system_prompt, system_prompt_with_retrieval
 
 # Account credentials
-username = "bglwagent@gmail.com"
-password = "gkkm uuiy gsvk cbil"
+username = "lealfreconcierge@gmail.com"
+password = "bwhs olbc vypd zgnp"
 imap_server = "imap.gmail.com"
 smtp_server = "smtp.gmail.com"
 smtp_port = 587  # Usually 587 for TLS
 # Function to check for new emails
 
 pc = Pinecone(api_key=os.getenv("PC_API_KEY"))
-index = pc.Index("bglw")
+index = pc.Index("la")
 
 client = OpenAI(
     api_key=os.getenv("OAI_API_KEY")
@@ -137,16 +137,16 @@ def send_response(messages, last_message_content, to_email, original_subject):
     try:
         query_embedding = client.embeddings.create(
             input=last_message_content,
-            model="text-embedding-3-small"
+            model="text-embedding-3-large"
         ).data[0].embedding
 
         retrieval = index.query(
             vector=query_embedding,
-            top_k=3,
+            top_k=7,
             include_metadata=True,
         )["matches"]
 
-        prompt = system_prompt_with_retrieval(retrieval)
+        prompt = la_prompt_with_retrieval(retrieval)
 
         generation = _predict_endpoint(
             [{"role": "system", "content": prompt}, *messages],
@@ -173,9 +173,6 @@ def send_response(messages, last_message_content, to_email, original_subject):
     except Exception as e:
         print(f"Failed to send response to {to_email}: {e}")
         raise e
-    
-    
-
 
 
 # Run the check every minute

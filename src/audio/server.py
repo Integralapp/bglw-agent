@@ -1,59 +1,93 @@
-import base64
-from llm import PhoneCall
-from stt import speech_to_text
-from twilio.rest import Client
-from requests import Response
-import ngrok
-from flask import Flask, request
-from twilio.twiml.voice_response import VoiceResponse, Gather
+from flask import Flask, request, Response
+from twilio.twiml.voice_response import VoiceResponse, Start
+import asyncio
+import websockets
 import json
-
-from tts import text_to_speech
-
-from config import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, CARTESIA_API_KEY, GROQ_API_KEY
-
-print("Auth", TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-
-client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-
-TTS_WEBSOCKET_URL = f'wss://api.cartesia.ai/tts/websocket?api_key={CARTESIA_API_KEY}&cartesia_version=2024-06-10'
-model_id = 'sonic-english'
-voice = {
-    'mode': 'id',
-    'id': "VOICE_ID" # You can check available voices using the Cartesia API or at https://play.cartesia.ai
-}
+import base64
+import threading
+import textwrap
 
 app = Flask(__name__)
 
-@app.route('/start', methods=['POST'])
-def start():
+# Assume these functions exist
+def custom_tts(text):
+    return b"audio_data"
+
+def custom_stt(audio_data):
+    return "transcribed text"
+
+@app.route('/twiml', methods=['POST'])
+def return_twiml():
+    try:
+        twiml = textwrap.dedent("""
+        <Response>
+            <Connect>
+                <Stream url="ws://ngrok." />
+            </Connect>
+            <Say>This TwiML instruction is unreachable unless the Stream is ended by your WebSocket server.</Say>
+        </Response>
+        """)
+        return Response(twiml, content_type='application/xml'), 200
+    except Exception as e:
+        return Response(str(e), content_type='text/plain'), 500
+
+@app.route("/voice", methods=["POST"])
+def voice():
     response = VoiceResponse()
-    gather = Gather(input='speech', action='/respond', language='en-US')
-    gather.say("Hello, how can I assist you today?")
-
-    response.append(gather)
-    response.redirect('/voice')
-
+    start = Start()
+    stream_url = f"wss://{request.host}:8001/stream"
+    print(f"Setting stream URL to: {stream_url}")
+    start.stream(url=stream_url)
+    response.append(start)
     return str(response)
 
-@app.route('/respond', methods=['GET', 'POST'])
-def respond():
-    call = PhoneCall(GROQ_API_KEY)
-    speech_result = request.values.get('SpeechResult')
+async def handle_stream(websocket, path):
+    buffer = b""
+    try:
+        async for message in websocket:
+            data = json.loads(message)
+            if data["event"] == "media":
+                chunk = base64.b64decode(data["media"]["payload"])
+                buffer += chunk
 
-    if speech_result:
-        llm_text = call(speech_result)
-        response = VoiceResponse()
-        response.say(llm_text)
-    else:
-        response = VoiceResponse()
-        response.say("Sorry, I didn't catch that. Can you repeat that for me please?")
-    response.redirect('/start')
-    return str(response)
+                if len(buffer) >= 4000:  # Adjust this value as needed
+                    transcribed_text = custom_stt(buffer)
+                    buffer = b""
 
+                    response_text = f"I heard you say: {transcribed_text}"
+                    audio_data = custom_tts(response_text)
+
+                    await websocket.send(json.dumps({
+                        "event": "media",
+                        "streamSid": data["streamSid"],
+                        "media": {
+                            "payload": base64.b64encode(audio_data).decode("utf-8")
+                        }
+                    }))
+            elif data["event"] == "start":
+                print("Stream started")
+            elif data["event"] == "stop":
+                print("Stream stopped")
+                break
+    except websockets.exceptions.ConnectionClosed:
+        print("WebSocket connection closed")
+
+def run_flask():
+    app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)
+
+def run_websocket_server():
+    async def serve():
+        async with websockets.serve(handle_stream, "0.0.0.0", 8001):
+            await asyncio.Future()  # run forever
+
+    asyncio.run(serve())
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8000)
-    print("Running app on http://localhost:8000")
+    flask_thread = threading.Thread(target=run_flask)
+    websocket_thread = threading.Thread(target=run_websocket_server)
 
+    flask_thread.start()
+    websocket_thread.start()
 
+    flask_thread.join()
+    websocket_thread.join()
