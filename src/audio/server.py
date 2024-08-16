@@ -19,7 +19,7 @@ from io import BytesIO
 from faster_whisper import WhisperModel
 import sounddevice as sd
 import requests
-from config import ELEVEN_API_KEY
+from config import ELEVEN_API_KEY, GROQ_API_KEY
 import webrtcvad
 from scipy import signal
 from prompts import TURA_SYSTEM_PROMPT
@@ -215,7 +215,7 @@ async def handle_stream(websocket, path):
     sample_rate = 8000  # Adjust to match your audio sample rate
     frame_duration = 30  # WebRTC VAD requires 10, 20, or 30 ms frames
     samples_per_frame = int(sample_rate * frame_duration / 1000)
-    phone_call = PhoneCall(system_prompt=TURA_SYSTEM_PROMPT)
+    phone_call = PhoneCall(groq_api_key=GROQ_API_KEY, system_prompt=TURA_SYSTEM_PROMPT)
     
     try:
         async for message in websocket:
