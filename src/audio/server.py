@@ -3,6 +3,7 @@ import io
 import time
 import wave
 from flask import Flask, request, Response
+from llm import PhoneCall
 from stt import speech_to_text
 from twilio.twiml.voice_response import VoiceResponse, Start
 import asyncio
@@ -21,6 +22,7 @@ import requests
 from config import ELEVEN_API_KEY
 import webrtcvad
 from scipy import signal
+from prompts import TURA_SYSTEM_PROMPT
 
 app = Flask(__name__)
 el = ElevenLabs(
@@ -213,6 +215,7 @@ async def handle_stream(websocket, path):
     sample_rate = 8000  # Adjust to match your audio sample rate
     frame_duration = 30  # WebRTC VAD requires 10, 20, or 30 ms frames
     samples_per_frame = int(sample_rate * frame_duration / 1000)
+    phone_call = PhoneCall(system_prompt=TURA_SYSTEM_PROMPT)
     
     try:
         async for message in websocket:
@@ -254,8 +257,9 @@ async def handle_stream(websocket, path):
                         if len(speech_buffer) > 0:
                             transcribed_text = custom_stt(speech_buffer)
 
-                            generation = transcribed_text
+                            generation = phone_call(transcribed_text).choices[0].message.content
 
+                            # TODO: Add in streamed TTS output using audio data
                             audio_data = custom_tts(generation)
 
                             await websocket.send(json.dumps({
