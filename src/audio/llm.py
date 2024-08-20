@@ -21,6 +21,6 @@ class PhoneCall:
     return result
 
   def execute(self, stream: bool = False):
-    completion = self.client.chat.completions.create(model="llama3-70b-8192", messages=self.messages, max_tokens=8192, stream=stream)
+    completion = self.client.chat.completions.create(model="llama3-70b-8192", messages=self.messages, max_tokens=2000, stream=stream)
 
     return completion.choices[0].message.content
