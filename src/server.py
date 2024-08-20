@@ -11,10 +11,10 @@ from .llm import generate
 from .prompt import system_prompt
 from .google_email import email_thread_to_messages, create_and_send_response
 from .redis_client import RedisClient
+from .google_service import GoogleService
 
 app = Flask(__name__)
 
-global_gmail_service = None
 current_history_id = None
 
 
@@ -26,18 +26,18 @@ def process_redirect():
 
     credentials = get_credentials(code, "")
 
-    global global_google_service
-    global_google_service = build(serviceName="gmail",
-                                  version="v1",
-                                  http=credentials.authorize(httplib2.Http()))
+    google_service = build(serviceName="gmail",
+                           version="v1",
+                           http=credentials.authorize(httplib2.Http()))
+    GoogleService.set_google_service(google_service)
 
     watch_request = {
         'labelIds': ['INBOX'],
         'topicName': 'projects/email-agent-425404/topics/gmail',
         'labelFilterBehavior': 'INCLUDE'
     }
-    res = global_google_service.users().watch(userId='me',
-                                              body=watch_request).execute()
+    res = google_service.users().watch(userId='me',
+                                       body=watch_request).execute()
     print(res)
 
     return "<p>Code received and credentials stored!</p>"
@@ -45,11 +45,15 @@ def process_redirect():
 
 @app.route("/get_emails")
 def get_emails():
-    threads = (global_google_service.users().threads().list(
+    google_service = GoogleService.get_google_service()
+    if google_service is None:
+        raise Exception("Google Service None")
+
+    threads = (google_service.users().threads().list(
         userId="me").execute().get("threads", []))
     print(threads)
     conversation_id = "190e0470ee8f1028"
-    messages = email_thread_to_messages(conversation_id, global_google_service)
+    messages = email_thread_to_messages(conversation_id, google_service)
     print(messages)
 
     return messages
@@ -58,6 +62,10 @@ def get_emails():
 @app.route("/subscription", methods=['POST'])
 def process_incoming_webhook():
     try:
+        google_service = GoogleService.get_google_service()
+        if google_service is None:
+            raise Exception("Google Service None")
+
         payload = request.get_json()
         message = payload["message"]
         data = message["data"]
@@ -71,7 +79,7 @@ def process_incoming_webhook():
             current_history_id = history_id
 
         # Retrieve history from the given historyId
-        history_response = global_google_service.users().history().list(
+        history_response = google_service.users().history().list(
             userId="me",
             startHistoryId=current_history_id,
             historyTypes=["messageAdded"]).execute()
@@ -92,7 +100,11 @@ def process_incoming_webhook():
             if "messagesAdded" in history:
                 for message in history["messagesAdded"]:
                     message_id = message["message"]["id"]
-                    RedisClient.enqueue(message_id)
+                    params = {
+                        'message_id': message_id,
+                        'google_service': google_service
+                    }
+                    RedisClient.enqueue(params)
                     # Add to queue
 
                     # Fetch the message details
@@ -107,9 +119,3 @@ def process_incoming_webhook():
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({'status': 'acknowledged'}, 200)
-
-
-def process_message(message_id):
-    message_details = global_google_service.users().messages().get(
-        userId="me", id=message_id).execute()
-    print(f"New message: {message_details['snippet']}")
