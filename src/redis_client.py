@@ -1,10 +1,18 @@
 import redis
 from rq import Queue
-import sys
+from .google_service import GoogleService
 
 
-def print_message_id(messageId):
+def print_message_id(params):
+    messageId = params['message_id']
     print(messageId)
+    google_service = params['google_service']
+    if google_service is None:
+        raise Exception("Google Service None")
+
+    message_details = google_service.users().messages().get(
+        userId="me", id=messageId).execute()
+    print(f"New message: {message_details['snippet']}")
 
 
 class RedisClient:
@@ -20,5 +28,5 @@ class RedisClient:
         return Queue(connection=RedisClient._connection)
 
     @staticmethod
-    def enqueue(messageId):
-        RedisClient.get_queue().enqueue(print_message_id, messageId)
+    def enqueue(params):
+        RedisClient.get_queue().enqueue(print_message_id, params)
